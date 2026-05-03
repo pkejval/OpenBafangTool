@@ -12,7 +12,6 @@ import type { DescriptionsProps } from 'antd';
 import {
     SyncOutlined,
     DeliveredProcedureOutlined,
-    WarningTwoTone,
 } from '@ant-design/icons';
 import Title from 'antd/es/typography/Title';
 import BafangCanSystem from '../../../../../device/high-level/BafangCanSystem';
@@ -618,8 +617,6 @@ class BafangCanMotorSettingsView extends React.Component<
                 label: (
                     <>
                         {i18n.t('speed_limit')}
-                        <br />
-                        <Text italic>{i18n.t('speed_limit_description')}</Text>
                     </>
                 ),
                 children: (
@@ -628,7 +625,6 @@ class BafangCanMotorSettingsView extends React.Component<
                         unit={i18n.t('km/h')}
                         min={1}
                         max={25}
-                        disabled={parameter3.speed_limit > 25}
                         onNewValue={(e) => {
                             this.setState({
                                 parameter3: updateField(
@@ -646,10 +642,6 @@ class BafangCanMotorSettingsView extends React.Component<
                 label: (
                     <>
                         {i18n.t('wheel_diameter')}
-                        <br />
-                        <Text italic>
-                            {i18n.t('wheel_diameter_description')}
-                        </Text>
                     </>
                 ),
                 children: (
@@ -837,13 +829,7 @@ class BafangCanMotorSettingsView extends React.Component<
                     {i18n.t('controller')}
                 </Typography.Title>
                 <Modal
-                    title={
-                        <>
-                            <WarningTwoTone twoToneColor="red" />
-                            {'   ' + i18n.t('warning') + '   '}
-                            <WarningTwoTone twoToneColor="red" />
-                        </>
-                    }
+                    title={i18n.t('calibration_title')}
                     okText={i18n.t('continue')}
                     cancelText={i18n.t('cancel')}
                     open={this.state.position_sensor_calibration_dialog}
@@ -867,10 +853,7 @@ class BafangCanMotorSettingsView extends React.Component<
                             position_sensor_calibration_dialog: false,
                         })
                     }
-                >
-                    <p>{i18n.t('calibration_warning_description')}</p>
-                    <p>{i18n.t('calibration_warning_recomendation')}</p>
-                </Modal>
+                />
                 <br />
                 <Descriptions
                     bordered

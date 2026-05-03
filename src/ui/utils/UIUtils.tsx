@@ -10,6 +10,25 @@ import SelectParameterComponent from '../components/SelectParameterComponent';
 
 const { Text } = Typography;
 
+function isRestrictionOrRecommendationNote(note?: string): boolean {
+    if (!note) return false;
+    const normalized = note.toLowerCase();
+    return [
+        'recommend',
+        'recommended',
+        'legal',
+        'illegal',
+        'law',
+        'never',
+        'warning',
+        'disclaimer',
+        'liability',
+        'responsib',
+        'please note',
+        'security',
+    ].some((keyword) => normalized.includes(keyword));
+}
+
 export function generateSimpleStringListItem(
     text: string,
     content: string | number | null,
@@ -19,7 +38,7 @@ export function generateSimpleStringListItem(
         label: (
             <>
                 {text}
-                {note && (
+                {note && !isRestrictionOrRecommendationNote(note) && (
                     <>
                         <br /> <Text italic>{note}</Text>
                     </>
@@ -35,14 +54,13 @@ export function generateEditableStringListItem(
     text: string,
     content: string | null,
     onNewValue: (value: string) => void,
-    maxLength = 40,
     note?: string,
 ): DescriptionsItemType {
     return {
         label: (
             <>
                 {text}
-                {note && (
+                {note && !isRestrictionOrRecommendationNote(note) && (
                     <>
                         <br /> <Text italic>{note}</Text>
                     </>
@@ -51,7 +69,6 @@ export function generateEditableStringListItem(
         ),
         children: (
             <StringInputComponent
-                maxLength={maxLength}
                 value={content}
                 onNewValue={onNewValue}
             />
@@ -122,7 +139,7 @@ export function generateAnnotatedEditableNumberListItem(
         label: (
             <>
                 {text}
-                {note && (
+                {note && !isRestrictionOrRecommendationNote(note) && (
                     <>
                         <br /> <Text italic>{note}</Text>
                     </>
@@ -160,7 +177,7 @@ export function generateAnnotatedEditableNumberListItemWithWarning(
         label: (
             <>
                 {text}
-                {note && (
+                {note && !isRestrictionOrRecommendationNote(note) && (
                     <>
                         <br /> <Text italic>{note}</Text>
                     </>

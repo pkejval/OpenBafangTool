@@ -64,11 +64,6 @@ const errorCodesTableLayout = [
         dataIndex: 'description',
         key: 'description',
     },
-    {
-        title: i18n.t('recommendations'),
-        dataIndex: 'recommendations',
-        key: 'recommendations',
-    },
 ];
 
 /* eslint-disable camelcase */
@@ -396,7 +391,6 @@ class BafangCanDisplaySettingsView extends React.Component<
         key: string;
         code: number;
         description: string;
-        recommendations: string;
     }[] {
         if (!this.state.error_codes) return [];
         let i: number = 0;

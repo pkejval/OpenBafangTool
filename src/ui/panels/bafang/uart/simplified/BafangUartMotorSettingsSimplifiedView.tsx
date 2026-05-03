@@ -175,11 +175,6 @@ class BafangUartMotorSettingsSimplifiedView extends React.Component<
                 label: (
                     <>
                         {i18n.t('pedal_speed_limit')}
-                        <br />
-                        <br />
-                        <Typography.Text italic>
-                            {i18n.t('pedal_speed_limit_description')}
-                        </Typography.Text>
                     </>
                 ),
                 children: (
@@ -233,7 +228,6 @@ class BafangUartMotorSettingsSimplifiedView extends React.Component<
                             });
                         }}
                         value={pedal_signals_before_start}
-                        disabled={pedal_type < 1 || pedal_type > 3}
                     >
                         <Radio
                             value={
@@ -267,11 +261,6 @@ class BafangUartMotorSettingsSimplifiedView extends React.Component<
                 label: (
                     <>
                         {i18n.t('stop_delay')}
-                        <br />
-                        <br />
-                        <Typography.Text italic>
-                            {i18n.t('stop_delay_simplified_description')}
-                        </Typography.Text>
                     </>
                 ),
                 children: (

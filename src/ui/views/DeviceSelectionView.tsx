@@ -1,14 +1,5 @@
 import React from 'react';
-import { CheckboxChangeEvent } from 'antd/es/checkbox';
-import {
-    Button,
-    Checkbox,
-    Form,
-    Select,
-    Typography,
-    Space,
-    message,
-} from 'antd';
+import { Button, Form, Select, Typography, Space, message } from 'antd';
 import { SerialPort } from 'serialport';
 import HID from 'node-hid';
 import IConnection from '../../device/high-level/Connection';
@@ -43,8 +34,6 @@ type DeviceSelectionState = {
     deviceInterface: DeviceInterface | null;
     deviceType: DeviceType | null;
     devicePort: string | null;
-    localLawsAgreement: boolean | null;
-    disclaimerAgreement: boolean | null;
 };
 
 class DeviceSelectionView extends React.Component<
@@ -63,8 +52,6 @@ class DeviceSelectionView extends React.Component<
             deviceInterface: null,
             deviceType: null,
             devicePort: null,
-            localLawsAgreement: false,
-            disclaimerAgreement: false,
         };
 
         setInterval(() => {
@@ -252,76 +239,6 @@ class DeviceSelectionView extends React.Component<
                             </Select>
                         </Form.Item>
                     )}
-                    <Form.Item
-                        name="local_laws_agreement"
-                        label=""
-                        initialValue={false}
-                        valuePropName="checked"
-                        rules={[
-                            {
-                                validator: (_, value) =>
-                                    value
-                                        ? Promise.resolve()
-                                        : Promise.reject(
-                                              new Error(
-                                                  i18n.t(
-                                                      'law_disclaimer_error',
-                                                  ),
-                                              ),
-                                          ),
-                            },
-                        ]}
-                    >
-                        <Checkbox
-                            onChange={(value: CheckboxChangeEvent) => {
-                                this.setState({
-                                    localLawsAgreement: value.target.checked,
-                                });
-                            }}
-                            style={{ fontSize: '12px' }}
-                        >
-                            {i18n.t('law_disclaimer_text_1')}
-                            <br />
-                            {i18n.t('law_disclaimer_text_2')}
-                            <span style={{ color: 'red' }}>&nbsp;*</span>
-                        </Checkbox>
-                    </Form.Item>
-                    <Form.Item
-                        name="disclaimer_agreement"
-                        label=""
-                        initialValue={false}
-                        valuePropName="checked"
-                        rules={[
-                            {
-                                validator: (_, value) =>
-                                    value
-                                        ? Promise.resolve()
-                                        : Promise.reject(
-                                              new Error(
-                                                  i18n.t(
-                                                      'responsibility_disclaimer_error',
-                                                  ),
-                                              ),
-                                          ),
-                            },
-                        ]}
-                    >
-                        <Checkbox
-                            onChange={(value: CheckboxChangeEvent) => {
-                                this.setState({
-                                    disclaimerAgreement: value.target.checked,
-                                });
-                            }}
-                            style={{ fontSize: '12px' }}
-                        >
-                            {i18n.t('liability_disclaimer_text_1')}
-                            <br />
-                            {i18n.t('liability_disclaimer_text_2')}
-                            <br />
-                            {i18n.t('liability_disclaimer_text_3')}
-                            <span style={{ color: 'red' }}>&nbsp;*</span>
-                        </Checkbox>
-                    </Form.Item>
                     <Form.Item>
                         <Space>
                             <Button

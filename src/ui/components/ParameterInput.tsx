@@ -1,4 +1,4 @@
-import { InputNumber, Tooltip } from 'antd';
+import { InputNumber } from 'antd';
 import React, { ReactNode } from 'react';
 import i18n from '../../i18n/i18n';
 
@@ -20,7 +20,6 @@ type ParameterInputProps = {
 
 type ParameterInputState = {
     value: number | null;
-    warning: boolean;
 };
 
 class ParameterInputComponent extends React.Component<
@@ -43,7 +42,7 @@ class ParameterInputComponent extends React.Component<
     constructor(props: any) {
         super(props);
         const { value } = this.props;
-        this.state = { value, warning: false };
+        this.state = { value };
     }
 
     static getDerivedStateFromProps(
@@ -59,53 +58,27 @@ class ParameterInputComponent extends React.Component<
     }
 
     render() {
-        const { value, warning } = this.state;
+        const { value } = this.state;
         const {
             unit,
-            min,
-            max,
             onNewValue,
-            warningText,
-            warningBelow,
-            warningAbove,
-            checkValue,
-            disabled,
             decimalPlaces,
         } = this.props;
         if (value === null && !this.props.nullIsOk) return i18n.t('not_available');
         return (
-            <Tooltip title={warningText} trigger="click" open={warning}>
-                <InputNumber
-                    min={min}
-                    max={max}
-                    value={value as number}
-                    addonAfter={unit}
-                    style={{ minWidth: '150px' }}
-                    onChange={(number) => {
-                        if (number !== null) {
-                            let tmp = false;
-                            tmp ||=
-                                warningBelow !== undefined &&
-                                number < warningBelow;
-                            tmp ||=
-                                warningAbove !== undefined &&
-                                number > warningAbove;
-                            tmp ||=
-                                checkValue !== undefined && !checkValue(number);
-                            let multiplier = 10 ** (decimalPlaces as number);
-                            let value =
-                                Math.floor(number * multiplier) / multiplier;
-                            this.setState({
-                                value,
-                                warning: tmp,
-                            });
-                            onNewValue(value);
-                        }
-                    }}
-                    status={warning ? 'warning' : ''}
-                    disabled={disabled}
-                />
-            </Tooltip>
+            <InputNumber
+                value={value as number}
+                addonAfter={unit}
+                style={{ minWidth: '150px' }}
+                onChange={(number) => {
+                    if (number !== null) {
+                        let multiplier = 10 ** (decimalPlaces as number);
+                        let value = Math.floor(number * multiplier) / multiplier;
+                        this.setState({ value });
+                        onNewValue(value);
+                    }
+                }}
+            />
         );
     }
 }

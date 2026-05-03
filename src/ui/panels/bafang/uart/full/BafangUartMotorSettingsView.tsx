@@ -322,7 +322,6 @@ class BafangUartMotorSettingsView extends React.Component<
                         warningText="Its illegal in most countries to set speed limit bigger than 25km/h"
                         warningBelow={0}
                         warningAbove={25}
-                        disabled={pedal_speed_limit_unit === 'by_display'}
                     />
                 ),
             },
@@ -376,7 +375,6 @@ class BafangUartMotorSettingsView extends React.Component<
                         warningText="Its illegal in most countries to use throttle"
                         warningBelow={0}
                         warningAbove={0}
-                        disabled={throttle_speed_limit_unit === 'by_display'}
                     />
                 ),
             },
@@ -632,7 +630,6 @@ class BafangUartMotorSettingsView extends React.Component<
                         warningText="Its illegal in most countries to set speed limit bigger than 25km/h"
                         warningBelow={0}
                         warningAbove={25}
-                        disabled={pedal_speed_limit_unit === 'by_display'}
                     />
                 ),
             },
@@ -845,7 +842,6 @@ class BafangUartMotorSettingsView extends React.Component<
                         warningText="Its illegal in most countries to use throttle"
                         warningBelow={0}
                         warningAbove={0}
-                        disabled={throttle_speed_limit_unit === 'by_display'}
                     />
                 ),
             },

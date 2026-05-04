@@ -7,9 +7,15 @@ import {
     Popconfirm,
     Button,
     Modal,
+    Input,
+    Select,
+    Space,
 } from 'antd';
 import type { DescriptionsProps } from 'antd';
 import {
+    ImportOutlined,
+    ReloadOutlined,
+    SaveOutlined,
     SyncOutlined,
     DeliveredProcedureOutlined,
 } from '@ant-design/icons';
@@ -44,6 +50,13 @@ import TorqueTableComponent from '../../../../components/TorqueTableComponent';
 import { WheelDiameterTable } from '../../../../../constants/BafangCanConstants';
 import { updateField } from '../../../../../utils/utils';
 import i18n from '../../../../../i18n/i18n';
+import {
+    CanControllerProfileSummary,
+    CanControllerProfileState,
+    listCanControllerProfiles,
+    readCanControllerProfile,
+    saveCanControllerProfile,
+} from '../../../../../utils/canProfileStore';
 
 const { Text } = Typography;
 
@@ -79,6 +92,9 @@ type SettingsState = {
     manufacturer: string | null;
     walk_assist_speed: number | null;
     position_sensor_calibration_dialog: boolean;
+    profileName: string;
+    profileFileName: string | null;
+    profileList: CanControllerProfileSummary[];
 };
 
 /* eslint-disable camelcase */
@@ -155,6 +171,9 @@ class BafangCanMotorSettingsView extends React.Component<
             serial_number: controller.serialNumber,
             manufacturer: controller.manufacturer,
             position_sensor_calibration_dialog: false,
+            profileName: '',
+            profileFileName: null,
+            profileList: [],
         };
         this.getElectricItems = this.getElectricItems.bind(this);
         this.getBatteryItems = this.getBatteryItems.bind(this);
@@ -225,6 +244,226 @@ class BafangCanMotorSettingsView extends React.Component<
     componentWillUnmount(): void {
         this.props.connection.controller.emitter.removeAllListeners();
     }
+
+    componentDidMount(): void {
+        this.refreshProfiles();
+    }
+
+    private currentControllerProfileState(): CanControllerProfileState {
+        return {
+            parameter1: this.state.parameter1,
+            parameter2: this.state.torque_profiles
+                ? { torque_profiles: this.state.torque_profiles }
+                : null,
+            parameter3: this.state.parameter3,
+            manufacturer: this.state.manufacturer,
+        };
+    }
+
+    private syncControllerFromState(): void {
+        const { connection } = this.props;
+        const { parameter1, torque_profiles, parameter3, manufacturer } =
+            this.state;
+
+        if (parameter1) {
+            const nextParameter1 = { ...parameter1 };
+            if (this.state.current_limit !== null)
+                nextParameter1.current_limit = this.state.current_limit;
+            if (this.state.overvoltage !== null)
+                nextParameter1.overvoltage = this.state.overvoltage;
+            if (this.state.undervoltage_under_load !== null)
+                nextParameter1.undervoltage_under_load =
+                    this.state.undervoltage_under_load;
+            if (this.state.undervoltage !== null)
+                nextParameter1.undervoltage = this.state.undervoltage;
+            if (this.state.battery_capacity !== null)
+                nextParameter1.battery_capacity = this.state.battery_capacity;
+            if (this.state.full_capacity_range !== null)
+                nextParameter1.full_capacity_range =
+                    this.state.full_capacity_range;
+            if (this.state.speedmeter_magnets_number !== null)
+                nextParameter1.speedmeter_magnets_number =
+                    this.state.speedmeter_magnets_number;
+            if (this.state.lamps_always_on !== null)
+                nextParameter1.lamps_always_on = this.state.lamps_always_on;
+            if (this.state.walk_assist_speed !== null)
+                nextParameter1.walk_assist_speed = this.state.walk_assist_speed;
+            if (this.state.start_current !== null)
+                nextParameter1.start_current = this.state.start_current;
+            if (this.state.current_loading_time !== null)
+                nextParameter1.current_loading_time =
+                    this.state.current_loading_time;
+            if (this.state.current_shedding_time !== null)
+                nextParameter1.current_shedding_time =
+                    this.state.current_shedding_time;
+            if (this.state.pedal_sensor_type !== null)
+                nextParameter1.pedal_sensor_type = this.state.pedal_sensor_type;
+            if (this.state.throttle_start_voltage !== null)
+                nextParameter1.throttle_start_voltage =
+                    this.state.throttle_start_voltage;
+            if (this.state.throttle_max_voltage !== null)
+                nextParameter1.throttle_max_voltage =
+                    this.state.throttle_max_voltage;
+            if (this.state.assist_levels !== null)
+                nextParameter1.assist_levels = this.state.assist_levels;
+            connection.controller.parameter1 = nextParameter1;
+        } else {
+            connection.controller.parameter1 = null;
+        }
+
+        connection.controller.parameter2 = torque_profiles
+            ? { torque_profiles }
+            : null;
+        connection.controller.parameter3 = parameter3;
+        connection.controller.manufacturer = manufacturer;
+    }
+
+    private syncControllerFromProfile(profile: CanControllerProfileState): void {
+        const { connection } = this.props;
+
+        if (profile.parameter1) {
+            connection.controller.parameter1 = { ...profile.parameter1 };
+        } else {
+            connection.controller.parameter1 = null;
+        }
+
+        connection.controller.parameter2 = profile.parameter2
+            ? {
+                  torque_profiles: profile.parameter2.torque_profiles.map(
+                      (torqueProfile) => ({ ...torqueProfile }),
+                  ),
+              }
+            : null;
+        connection.controller.parameter3 = profile.parameter3
+            ? { ...profile.parameter3 }
+            : null;
+        connection.controller.manufacturer = profile.manufacturer;
+    }
+
+    private writeControllerParameters(): void {
+        if (this.writingInProgress) return;
+        this.writingInProgress = true;
+        const { connection } = this.props;
+        connection.controller.saveData();
+        message.open({
+            key: 'writing',
+            type: 'loading',
+            content: i18n.t('writing'),
+            duration: 60,
+        });
+        connection.controller.emitter.once(
+            'write-finish',
+            (wroteSuccessfully, wroteUnsuccessfully) => {
+                message.open({
+                    key: 'writing',
+                    type: 'info',
+                    content: i18n.t('wrote_x_parameters', {
+                        successfully: wroteSuccessfully,
+                        nonSuccessfully: wroteUnsuccessfully,
+                    }),
+                    duration: 5,
+                });
+                this.writingInProgress = false;
+            },
+        );
+    }
+
+    private refreshProfiles = (): void => {
+        const profiles = listCanControllerProfiles();
+        this.setState((state) => ({
+            profileList: profiles,
+            profileFileName:
+                profiles.find((profile) => profile.fileName === state.profileFileName)
+                    ?.fileName ?? profiles[0]?.fileName ?? null,
+        }));
+    };
+
+    private applyProfileState = (profile: CanControllerProfileState): void => {
+        this.setState({
+            parameter1: profile.parameter1,
+            torque_profiles: profile.parameter2?.torque_profiles ?? null,
+            parameter3: profile.parameter3,
+            current_limit: profile.parameter1?.current_limit ?? null,
+            overvoltage: profile.parameter1?.overvoltage ?? null,
+            undervoltage_under_load:
+                profile.parameter1?.undervoltage_under_load ?? null,
+            undervoltage: profile.parameter1?.undervoltage ?? null,
+            battery_capacity: profile.parameter1?.battery_capacity ?? null,
+            full_capacity_range: profile.parameter1?.full_capacity_range ?? null,
+            speedmeter_magnets_number:
+                profile.parameter1?.speedmeter_magnets_number ?? null,
+            lamps_always_on: profile.parameter1?.lamps_always_on ?? null,
+            walk_assist_speed: profile.parameter1?.walk_assist_speed ?? null,
+            start_current: profile.parameter1?.start_current ?? null,
+            current_loading_time: profile.parameter1?.current_loading_time ?? null,
+            current_shedding_time: profile.parameter1?.current_shedding_time ?? null,
+            pedal_sensor_type: profile.parameter1?.pedal_sensor_type ?? null,
+            throttle_start_voltage:
+                profile.parameter1?.throttle_start_voltage ?? null,
+            throttle_max_voltage: profile.parameter1?.throttle_max_voltage ?? null,
+            assist_levels: profile.parameter1?.assist_levels ?? null,
+            manufacturer: profile.manufacturer,
+        });
+    };
+
+    private saveProfileToDisk = (): void => {
+        const { profileName } = this.state;
+        if (!profileName.trim()) {
+            message.error('Enter a profile name first.');
+            return;
+        }
+        const profile = this.currentControllerProfileState();
+
+        if (!profile.parameter1 && !profile.parameter2 && !profile.parameter3) {
+            message.error('No controller parameters are available yet.');
+            return;
+        }
+
+        const savedProfile = saveCanControllerProfile(profileName, profile);
+        this.setState(
+            {
+                profileName: savedProfile.name,
+                profileFileName: savedProfile.fileName,
+            },
+            () => {
+                this.refreshProfiles();
+                message.success(`Profile "${savedProfile.name}" saved.`);
+            },
+        );
+    };
+
+    private loadAndApplyProfile = (): void => {
+        if (this.writingInProgress) {
+            message.warning('Wait until the current write operation finishes.');
+            return;
+        }
+        const { profileFileName } = this.state;
+        if (!profileFileName) {
+            message.error('Select a profile first.');
+            return;
+        }
+
+        try {
+            const profile = readCanControllerProfile(profileFileName);
+            this.setState(
+                {
+                    profileName: profile.name,
+                    profileFileName,
+                },
+                () => {
+                    this.applyProfileState(profile.controller);
+                    this.syncControllerFromProfile(profile.controller);
+                    this.writeControllerParameters();
+                },
+            );
+        } catch (error) {
+            message.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to load the selected profile.',
+            );
+        }
+    };
 
     getRealtimeItems(): DescriptionsProps['items'] {
         let items: DescriptionsProps['items'] = [];
@@ -750,79 +989,8 @@ class BafangCanMotorSettingsView extends React.Component<
 
     saveParameters(): void {
         if (this.writingInProgress) return;
-        this.writingInProgress = true;
-        const { connection } = this.props;
-        const { parameter1 } = this.state;
-        if (parameter1) {
-            if (this.state.current_limit !== null)
-                parameter1.current_limit = this.state.current_limit;
-            if (this.state.overvoltage !== null)
-                parameter1.overvoltage = this.state.overvoltage;
-            if (this.state.undervoltage_under_load !== null)
-                parameter1.undervoltage_under_load =
-                    this.state.undervoltage_under_load;
-            if (this.state.undervoltage !== null)
-                parameter1.undervoltage = this.state.undervoltage;
-            if (this.state.battery_capacity !== null)
-                parameter1.battery_capacity = this.state.battery_capacity;
-            if (this.state.full_capacity_range !== null)
-                parameter1.full_capacity_range = this.state.full_capacity_range;
-            if (this.state.speedmeter_magnets_number !== null)
-                parameter1.speedmeter_magnets_number =
-                    this.state.speedmeter_magnets_number;
-            if (this.state.lamps_always_on !== null)
-                parameter1.lamps_always_on = this.state.lamps_always_on;
-            if (this.state.walk_assist_speed !== null)
-                parameter1.walk_assist_speed = this.state.walk_assist_speed;
-            if (this.state.start_current !== null)
-                parameter1.start_current = this.state.start_current;
-            if (this.state.current_loading_time !== null)
-                parameter1.current_loading_time =
-                    this.state.current_loading_time;
-            if (this.state.current_shedding_time !== null)
-                parameter1.current_shedding_time =
-                    this.state.current_shedding_time;
-            if (this.state.pedal_sensor_type !== null)
-                parameter1.pedal_sensor_type = this.state.pedal_sensor_type;
-            if (this.state.throttle_start_voltage !== null)
-                parameter1.throttle_start_voltage =
-                    this.state.throttle_start_voltage;
-            if (this.state.throttle_max_voltage !== null)
-                parameter1.throttle_max_voltage =
-                    this.state.throttle_max_voltage;
-            if (this.state.assist_levels !== null)
-                parameter1.assist_levels = this.state.assist_levels;
-            connection.controller.parameter1 = parameter1; //TODO
-        }
-        if (this.state.torque_profiles) {
-            connection.controller.parameter2 = {
-                torque_profiles: this.state.torque_profiles,
-            };
-        }
-        connection.controller.parameter3 = this.state.parameter3;
-        connection.controller.manufacturer = this.state.manufacturer;
-        connection.controller.saveData();
-        message.open({
-            key: 'writing',
-            type: 'loading',
-            content: i18n.t('writing'),
-            duration: 60,
-        });
-        connection.controller.emitter.once(
-            'write-finish',
-            (wroteSuccessfully, wroteUnsuccessfully) => {
-                message.open({
-                    key: 'writing',
-                    type: 'info',
-                    content: i18n.t('wrote_x_parameters', {
-                        successfully: wroteSuccessfully,
-                        nonSuccessfully: wroteUnsuccessfully,
-                    }),
-                    duration: 5,
-                });
-                this.writingInProgress = false;
-            },
-        );
+        this.syncControllerFromState();
+        this.writeControllerParameters();
     }
 
     render() {
@@ -832,6 +1000,55 @@ class BafangCanMotorSettingsView extends React.Component<
                 <Typography.Title level={2} style={{ margin: 0 }}>
                     {i18n.t('controller')}
                 </Typography.Title>
+                <Space wrap style={{ marginTop: '16px', marginBottom: '16px' }}>
+                    <Input
+                        placeholder="Profile name"
+                        value={this.state.profileName}
+                        onChange={(event) =>
+                            this.setState({ profileName: event.target.value })
+                        }
+                        style={{ width: '240px' }}
+                    />
+                    <Button
+                        icon={<SaveOutlined />}
+                        type="primary"
+                        onClick={this.saveProfileToDisk}
+                    >
+                        Save profile
+                    </Button>
+                    <Select
+                        allowClear
+                        showSearch
+                        placeholder="Saved profiles"
+                        value={this.state.profileFileName}
+                        onChange={(value) =>
+                            this.setState({
+                                profileFileName: value ?? null,
+                            })
+                        }
+                        optionFilterProp="label"
+                        style={{ minWidth: '280px' }}
+                        options={this.state.profileList.map((profile) => ({
+                            value: profile.fileName,
+                            label: `${profile.name} (${new Date(
+                                profile.savedAt,
+                            ).toLocaleString()})`,
+                        }))}
+                    />
+                    <Button
+                        icon={<ImportOutlined />}
+                        onClick={this.loadAndApplyProfile}
+                        disabled={!this.state.profileFileName}
+                    >
+                        Load and apply
+                    </Button>
+                    <Button
+                        icon={<ReloadOutlined />}
+                        onClick={this.refreshProfiles}
+                    >
+                        Refresh
+                    </Button>
+                </Space>
                 <Modal
                     title={i18n.t('calibration_title')}
                     okText={i18n.t('continue')}

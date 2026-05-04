@@ -3,13 +3,22 @@ import {
     Typography,
     Descriptions,
     Select,
+    Input,
+    Button,
+    Space,
     FloatButton,
     message,
     Switch,
     Popconfirm,
 } from 'antd';
 import type { DescriptionsProps } from 'antd';
-import { SyncOutlined, DeliveredProcedureOutlined } from '@ant-design/icons';
+import {
+    SyncOutlined,
+    DeliveredProcedureOutlined,
+    SaveOutlined,
+    ImportOutlined,
+    ReloadOutlined,
+} from '@ant-design/icons';
 import BafangUartMotor from '../../../../../device/high-level/BafangUartMotor';
 import {
     AssistLevel,
@@ -39,6 +48,13 @@ import {
 } from '../../../../utils/UIUtils';
 import AssistLevelTableComponent from '../../../../components/AssistLevelTableComponent';
 import i18n from '../../../../../i18n/i18n';
+import {
+    listUartMotorProfiles,
+    readUartMotorProfile,
+    saveUartMotorProfile,
+    UartMotorProfileSummary,
+    UartMotorProfileState,
+} from '../../../../../utils/uartProfileStore';
 
 const { Title } = Typography;
 
@@ -54,6 +70,9 @@ type SettingsState = BafangUartMotorInfo &
         throttle_speed_limit_unit: string;
         lastUpdateTime: number;
         oldStyle: boolean;
+        profileName: string;
+        profileFileName: string | null;
+        profileList: UartMotorProfileSummary[];
     };
 
 /* eslint-disable camelcase */
@@ -96,6 +115,9 @@ class BafangUartMotorSettingsView extends React.Component<
                     : 'kmh',
             lastUpdateTime: 0,
             oldStyle: false,
+            profileName: '',
+            profileFileName: null,
+            profileList: [],
         };
         this.getElectricalParameterItems =
             this.getElectricalParameterItems.bind(this);
@@ -120,6 +142,223 @@ class BafangUartMotorSettingsView extends React.Component<
         connection.emitter.removeListener('write-success', this.onWriteSuccess);
         connection.emitter.removeListener('write-error', this.onWriteError);
     }
+
+    componentDidMount(): void {
+        this.refreshProfiles();
+    }
+
+    private currentProfileState(): UartMotorProfileState {
+        const {
+            oldStyle,
+            serial_number,
+            model,
+            manufacturer,
+            system_code,
+            firmware_version,
+            hardware_version,
+            voltage,
+            max_current,
+            low_battery_protection,
+            current_limit,
+            assist_profiles,
+            wheel_diameter,
+            magnets_per_wheel_rotation,
+            speedmeter_type,
+            pedal_type,
+            pedal_assist_level,
+            pedal_speed_limit,
+            pedal_start_current,
+            pedal_slow_start_mode,
+            pedal_signals_before_start,
+            pedal_time_to_stop,
+            pedal_current_decay,
+            pedal_stop_decay,
+            pedal_keep_current,
+            throttle_start_voltage,
+            throttle_end_voltage,
+            throttle_mode,
+            throttle_assist_level,
+            throttle_speed_limit,
+            throttle_start_current,
+        } = this.state;
+
+        return {
+            oldStyle,
+            info: {
+                serial_number,
+                model,
+                manufacturer,
+                system_code,
+                firmware_version,
+                hardware_version,
+                voltage,
+                max_current,
+            },
+            basic_parameters: {
+                low_battery_protection,
+                current_limit,
+                assist_profiles,
+                wheel_diameter,
+                magnets_per_wheel_rotation,
+                speedmeter_type,
+            },
+            pedal_parameters: {
+                pedal_type,
+                pedal_assist_level,
+                pedal_speed_limit,
+                pedal_start_current,
+                pedal_slow_start_mode,
+                pedal_signals_before_start,
+                pedal_time_to_stop,
+                pedal_current_decay,
+                pedal_stop_decay,
+                pedal_keep_current,
+            },
+            throttle_parameters: {
+                throttle_start_voltage,
+                throttle_end_voltage,
+                throttle_mode,
+                throttle_assist_level,
+                throttle_speed_limit,
+                throttle_start_current,
+            },
+        };
+    }
+
+    private syncConnectionFromState(): void {
+        const { connection } = this.props;
+        connection.setSerialNumber(this.state.serial_number);
+        connection.setBasicParameters({
+            low_battery_protection: this.state.low_battery_protection,
+            current_limit: this.state.current_limit,
+            assist_profiles: this.state.assist_profiles,
+            wheel_diameter: this.state.wheel_diameter,
+            magnets_per_wheel_rotation: this.state.magnets_per_wheel_rotation,
+            speedmeter_type: this.state.speedmeter_type,
+        });
+        connection.setPedalParameters({
+            pedal_type: this.state.pedal_type,
+            pedal_assist_level: this.state.pedal_assist_level,
+            pedal_speed_limit: this.state.pedal_speed_limit,
+            pedal_start_current: this.state.pedal_start_current,
+            pedal_slow_start_mode: this.state.pedal_slow_start_mode,
+            pedal_signals_before_start: this.state.pedal_signals_before_start,
+            pedal_time_to_stop: this.state.pedal_time_to_stop,
+            pedal_current_decay: this.state.pedal_current_decay,
+            pedal_stop_decay: this.state.pedal_stop_decay,
+            pedal_keep_current: this.state.pedal_keep_current,
+        });
+        connection.setThrottleParameters({
+            throttle_start_voltage: this.state.throttle_start_voltage,
+            throttle_end_voltage: this.state.throttle_end_voltage,
+            throttle_mode: this.state.throttle_mode,
+            throttle_assist_level: this.state.throttle_assist_level,
+            throttle_speed_limit: this.state.throttle_speed_limit,
+            throttle_start_current: this.state.throttle_start_current,
+        });
+    }
+
+    private syncConnectionFromProfile(profile: UartMotorProfileState): void {
+        const { connection } = this.props;
+        connection.setSerialNumber(profile.info.serial_number);
+        connection.setBasicParameters(profile.basic_parameters);
+        connection.setPedalParameters(profile.pedal_parameters);
+        connection.setThrottleParameters(profile.throttle_parameters);
+    }
+
+    private writeParameters(): void {
+        const { connection } = this.props;
+        this.packages_written = 0;
+        connection.saveData();
+        setTimeout(() => {
+            if (this.packages_written === 3) {
+                message.success('Parameters saved successfully!');
+            } else {
+                message.error('Error during writing!');
+            }
+        }, 3000);
+    }
+
+    private refreshProfiles = (): void => {
+        const profiles = listUartMotorProfiles();
+        this.setState((state) => ({
+            profileList: profiles,
+            profileFileName:
+                profiles.find((profile) => profile.fileName === state.profileFileName)
+                    ?.fileName ?? profiles[0]?.fileName ?? null,
+        }));
+    };
+
+    private applyProfileState = (profile: UartMotorProfileState): void => {
+        this.setState({
+            ...profile.info,
+            ...profile.basic_parameters,
+            ...profile.pedal_parameters,
+            ...profile.throttle_parameters,
+            pedal_speed_limit_unit:
+                profile.pedal_parameters.pedal_speed_limit === SpeedLimitByDisplay
+                    ? 'by_display'
+                    : 'kmh',
+            throttle_speed_limit_unit:
+                profile.throttle_parameters.throttle_speed_limit ===
+                SpeedLimitByDisplay
+                    ? 'by_display'
+                    : 'kmh',
+            lastUpdateTime: Date.now(),
+            oldStyle: profile.oldStyle,
+        });
+    };
+
+    private saveProfileToDisk = (): void => {
+        const { profileName } = this.state;
+        if (!profileName.trim()) {
+            message.error('Enter a profile name first.');
+            return;
+        }
+        const savedProfile = saveUartMotorProfile(
+            profileName,
+            this.currentProfileState(),
+        );
+        this.setState(
+            {
+                profileName: savedProfile.name,
+                profileFileName: savedProfile.fileName,
+            },
+            () => {
+                this.refreshProfiles();
+                message.success(`Profile "${savedProfile.name}" saved.`);
+            },
+        );
+    };
+
+    private loadAndApplyProfile = (): void => {
+        const { profileFileName } = this.state;
+        if (!profileFileName) {
+            message.error('Select a profile first.');
+            return;
+        }
+
+        try {
+            const profile = readUartMotorProfile(profileFileName);
+            this.setState(
+                {
+                    profileName: profile.name,
+                    profileFileName,
+                },
+                () => {
+                    this.applyProfileState(profile.motor);
+                    this.syncConnectionFromProfile(profile.motor);
+                    this.writeParameters();
+                },
+            );
+        } catch (error) {
+            message.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to load the selected profile.',
+            );
+        }
+    };
 
     onWriteSuccess(pkg_code: string): void {
         // eslint-disable-next-line react/destructuring-assignment, react/no-access-state-in-setstate
@@ -883,27 +1122,8 @@ class BafangUartMotorSettingsView extends React.Component<
     }
 
     saveParameters(): void {
-        const { connection } = this.props;
-        const info: BafangUartMotorInfo = this.state as BafangUartMotorInfo;
-        const basic_parameters: BafangUartMotorBasicParameters = this
-            .state as BafangUartMotorBasicParameters;
-        const pedal_parameters: BafangUartMotorPedalParameters = this
-            .state as BafangUartMotorPedalParameters;
-        const throttle_parameters: BafangUartMotorThrottleParameters = this
-            .state as BafangUartMotorThrottleParameters;
-        connection.setSerialNumber(info.serial_number);
-        connection.setBasicParameters(basic_parameters);
-        connection.setPedalParameters(pedal_parameters);
-        connection.setThrottleParameters(throttle_parameters);
-        this.packages_written = 0;
-        connection.saveData();
-        setTimeout(() => {
-            if (this.packages_written === 3) {
-                message.success('Parameters saved successfully!');
-            } else {
-                message.error('Error during writing!');
-            }
-        }, 3000);
+        this.syncConnectionFromState();
+        this.writeParameters();
     }
 
     render() {
@@ -914,6 +1134,52 @@ class BafangUartMotorSettingsView extends React.Component<
                 <Typography.Title level={2} style={{ margin: 0 }}>
                     {i18n.t('uart_motor_parameters_title')}
                 </Typography.Title>
+                <Space wrap style={{ marginTop: '16px', marginBottom: '16px' }}>
+                    <Input
+                        placeholder="Profile name"
+                        value={this.state.profileName}
+                        onChange={(event) =>
+                            this.setState({ profileName: event.target.value })
+                        }
+                        style={{ width: '240px' }}
+                    />
+                    <Button
+                        icon={<SaveOutlined />}
+                        type="primary"
+                        onClick={this.saveProfileToDisk}
+                    >
+                        Save profile
+                    </Button>
+                    <Select
+                        allowClear
+                        showSearch
+                        placeholder="Saved profiles"
+                        value={this.state.profileFileName}
+                        onChange={(value) =>
+                            this.setState({
+                                profileFileName: value ?? null,
+                            })
+                        }
+                        optionFilterProp="label"
+                        style={{ minWidth: '280px' }}
+                        options={this.state.profileList.map((profile) => ({
+                            value: profile.fileName,
+                            label: `${profile.name} (${new Date(
+                                profile.savedAt,
+                            ).toLocaleString()})`,
+                        }))}
+                    />
+                    <Button
+                        icon={<ImportOutlined />}
+                        onClick={this.loadAndApplyProfile}
+                        disabled={!this.state.profileFileName}
+                    >
+                        Load and apply
+                    </Button>
+                    <Button icon={<ReloadOutlined />} onClick={this.refreshProfiles}>
+                        Refresh
+                    </Button>
+                </Space>
                 <br />
                 <Typography.Title level={5} style={{ margin: 0 }}>
                     {i18n.t('old_style_layout')}&nbsp;&nbsp;

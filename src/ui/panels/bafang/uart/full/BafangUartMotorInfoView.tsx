@@ -7,6 +7,8 @@ import { BafangUartMotorInfo } from '../../../../../types/BafangUartMotorTypes';
 import { generateSimpleStringListItem } from '../../../../utils/UIUtils';
 import i18n from '../../../../../i18n/i18n';
 
+const compactDescriptionsColumn = { xs: 1, sm: 1, md: 1, lg: 2, xl: 2, xxl: 2 };
+
 type InfoProps = {
     connection: BafangUartMotor;
 };
@@ -82,30 +84,32 @@ class BafangUartMotorInfoView extends React.Component<InfoProps, InfoState> {
     render() {
         const { connection } = this.props;
         return (
-            <div style={{ margin: '36px' }}>
+            <div style={{ margin: '20px' }}>
                 <Typography.Title level={2} style={{ margin: 0 }}>
                     {i18n.t('uart_main_tab_title')}
                 </Typography.Title>
-                <br />
                 <Descriptions
                     bordered
+                    size="small"
                     title={i18n.t('uart_motor_codes')}
                     items={this.getCodeItems()}
-                    column={1}
-                    style={{ marginBottom: '20px' }}
+                    column={compactDescriptionsColumn}
+                    style={{ marginBottom: '16px' }}
                 />
                 <Descriptions
                     bordered
+                    size="small"
                     title={i18n.t('uart_motor_versions')}
                     items={this.getVersionItems()}
-                    column={1}
-                    style={{ marginBottom: '20px' }}
+                    column={compactDescriptionsColumn}
+                    style={{ marginBottom: '16px' }}
                 />
                 <Descriptions
                     bordered
+                    size="small"
                     title={i18n.t('electric_parameters')}
                     items={this.getElectricalParameterItems()}
-                    column={1}
+                    column={compactDescriptionsColumn}
                 />
                 <FloatButton
                     icon={<SyncOutlined />}

@@ -58,6 +58,8 @@ import {
 
 const { Title } = Typography;
 
+const compactDescriptionsColumn = { xs: 1, sm: 1, md: 1, lg: 2, xl: 2, xxl: 2 };
+
 type SettingsProps = {
     connection: BafangUartMotor;
 };
@@ -1130,18 +1132,18 @@ class BafangUartMotorSettingsView extends React.Component<
         const { connection } = this.props;
         const { oldStyle } = this.state;
         return (
-            <div style={{ margin: '36px' }}>
+            <div style={{ margin: '20px' }}>
                 <Typography.Title level={2} style={{ margin: 0 }}>
                     {i18n.t('uart_motor_parameters_title')}
                 </Typography.Title>
-                <Space wrap style={{ marginTop: '16px', marginBottom: '16px' }}>
+                <Space wrap size={8} style={{ marginTop: '12px', marginBottom: '16px' }}>
                     <Input
                         placeholder="Profile name"
                         value={this.state.profileName}
                         onChange={(event) =>
                             this.setState({ profileName: event.target.value })
                         }
-                        style={{ width: '240px' }}
+                        style={{ width: '200px' }}
                     />
                     <Button
                         icon={<SaveOutlined />}
@@ -1161,7 +1163,7 @@ class BafangUartMotorSettingsView extends React.Component<
                             })
                         }
                         optionFilterProp="label"
-                        style={{ minWidth: '280px' }}
+                        style={{ minWidth: '240px' }}
                         options={this.state.profileList.map((profile) => ({
                             value: profile.fileName,
                             label: `${profile.name} (${new Date(
@@ -1180,7 +1182,6 @@ class BafangUartMotorSettingsView extends React.Component<
                         Refresh
                     </Button>
                 </Space>
-                <br />
                 <Typography.Title level={5} style={{ margin: 0 }}>
                     {i18n.t('old_style_layout')}&nbsp;&nbsp;
                     <Switch
@@ -1188,22 +1189,23 @@ class BafangUartMotorSettingsView extends React.Component<
                         onChange={(value) => this.setState({ oldStyle: value })}
                     />
                 </Typography.Title>
-                <br />
                 {!oldStyle && (
                     <>
                         <Descriptions
                             bordered
+                            size="small"
                             title={i18n.t('electric_parameters')}
                             items={this.getElectricalParameterItems()}
-                            column={1}
-                            style={{ marginBottom: '20px' }}
+                            column={compactDescriptionsColumn}
+                            style={{ marginBottom: '16px' }}
                         />
                         <Descriptions
                             bordered
+                            size="small"
                             title={i18n.t('mechanical_parameters')}
                             items={this.getPhysicalParameterItems()}
-                            column={1}
-                            style={{ marginBottom: '20px' }}
+                            column={compactDescriptionsColumn}
+                            style={{ marginBottom: '16px' }}
                         />
                         <Title level={5}>{i18n.t('assist_table_title')}</Title>
                         <AssistLevelTableComponent
@@ -1215,16 +1217,18 @@ class BafangUartMotorSettingsView extends React.Component<
                         />
                         <Descriptions
                             bordered
+                            size="small"
                             title={i18n.t('driving_parameters')}
                             items={this.getDriveParameterItems()}
-                            column={1}
-                            style={{ marginBottom: '20px' }}
+                            column={compactDescriptionsColumn}
+                            style={{ marginBottom: '16px' }}
                         />
                         <Descriptions
                             bordered
+                            size="small"
                             title={i18n.t('version_list_title')}
                             items={this.getOtherItems()}
-                            column={1}
+                            column={compactDescriptionsColumn}
                         />
                     </>
                 )}
@@ -1232,17 +1236,19 @@ class BafangUartMotorSettingsView extends React.Component<
                     <>
                         <Descriptions
                             bordered
+                            size="small"
                             title={i18n.t('info')}
                             items={this.getInfoItems()}
-                            column={1}
-                            style={{ marginBottom: '20px' }}
+                            column={compactDescriptionsColumn}
+                            style={{ marginBottom: '16px' }}
                         />
                         <Descriptions
                             bordered
+                            size="small"
                             title={i18n.t('basic_parameters')}
                             items={this.getBasicParameterItems()}
-                            column={1}
-                            style={{ marginBottom: '20px' }}
+                            column={compactDescriptionsColumn}
+                            style={{ marginBottom: '16px' }}
                         />
                         <AssistLevelTableComponent
                             assist_profiles={this.state.assist_profiles}
@@ -1253,16 +1259,18 @@ class BafangUartMotorSettingsView extends React.Component<
                         />
                         <Descriptions
                             bordered
+                            size="small"
                             title={i18n.t('pedal_parameters')}
                             items={this.getPedalParametersItems()}
-                            column={1}
-                            style={{ marginBottom: '20px' }}
+                            column={compactDescriptionsColumn}
+                            style={{ marginBottom: '16px' }}
                         />
                         <Descriptions
                             bordered
+                            size="small"
                             title={i18n.t('throttle_parameters')}
                             items={this.getThrottleParametersItems()}
-                            column={1}
+                            column={compactDescriptionsColumn}
                         />
                     </>
                 )}

@@ -62,18 +62,24 @@ class AssistLevelTableComponent extends React.Component<
         return (
             <Table
                 dataSource={this.getAssistLevelTableData()}
-                pagination={{ position: ['none', 'none'] }}
-                style={{ marginBottom: '20px' }}
+                bordered
+                pagination={false}
+                size="small"
+                tableLayout="fixed"
+                style={{ marginBottom: '12px' }}
+                rowKey="key"
             >
                 <Column
                     title={i18n.t('assist_levels') as string}
                     dataIndex="assist_level"
                     key="assist_level"
+                    width={120}
                 />
                 <Column
                     title={i18n.t('current_limit') as string}
                     dataIndex="current"
                     key="current"
+                    width={240}
                     render={(_: any, record: AssistTableRow) => (
                         <ParameterInputComponent
                             value={record.current}
@@ -103,6 +109,7 @@ class AssistLevelTableComponent extends React.Component<
                     title={i18n.t('speed_limit') as string}
                     dataIndex="Speed"
                     key="tags"
+                    width={240}
                     render={(_: any, record: AssistTableRow) => (
                         <ParameterInputComponent
                             value={record.speed}

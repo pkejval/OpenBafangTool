@@ -21,6 +21,8 @@ export default class BafangBesstTool {
 
     private software_version: string | null = null;
 
+    private onDeviceDisconnect: () => void;
+
     constructor(demo: boolean, besstDevice?: BesstDevice) {
         if (demo) {
             this.serial_number = getBesstSNDemo();
@@ -30,17 +32,25 @@ export default class BafangBesstTool {
         this.demo = demo;
         this.besstDevice = besstDevice;
         this.emitter = new EventEmitter();
-        this.besstDevice?.emitter.on(
-            'disconnection',
-            () => (this.besstDevice = undefined),
-        );
+        this.onDeviceDisconnect = this.onDeviceDisconnectImpl.bind(this);
     }
 
     public connect() {
-        this.besstDevice?.emitter.on(
+        this.detachDeviceListeners();
+        this.besstDevice?.emitter.on('disconnection', this.onDeviceDisconnect);
+    }
+
+    private detachDeviceListeners(): void {
+        this.besstDevice?.emitter.removeListener(
             'disconnection',
-            () => (this.besstDevice = undefined),
+            this.onDeviceDisconnect,
         );
+    }
+
+    private onDeviceDisconnectImpl(): void {
+        this.detachDeviceListeners();
+        this.besstDevice = undefined;
+        this.readingInProgress = false;
     }
 
     public loadData(): void {
@@ -53,6 +63,11 @@ export default class BafangBesstTool {
         this.readingInProgress = true;
         let finishedSuccessfull = 0,
             finishedNonSuccessfull = 0;
+        if (!this.besstDevice) {
+            this.readingInProgress = false;
+            this.emitter.emit('read-finish', 0, 3);
+            return;
+        }
         const finish = (success: boolean) => {
             if (success) finishedSuccessfull++;
             else finishedNonSuccessfull++;

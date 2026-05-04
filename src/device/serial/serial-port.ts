@@ -19,11 +19,46 @@ export function openPort(
     onOpen: () => void,
     onError: (err: Error | null) => void,
     onData: (path: string, data: Buffer) => void,
-): void {
+): Promise<boolean> {
+    if (ports[path]?.isOpen) {
+        return Promise.resolve(true);
+    }
+    if (ports[path]) {
+        try {
+            ports[path].removeAllListeners();
+            ports[path].close();
+        } catch (error) {
+            delete ports[path];
+        }
+    }
     ports[path] = new SerialPort({ path, baudRate, autoOpen: false });
-    ports[path]?.open(onError);
-    ports[path]?.on('open', onOpen);
-    ports[path]?.on('readable', () => onData(path, ports[path]?.read()));
+    return new Promise<boolean>((resolve) => {
+        const port = ports[path];
+        if (!port) {
+            resolve(false);
+            return;
+        }
+        port.once('open', () => {
+            onOpen();
+            resolve(true);
+        });
+        port.once('error', (err) => {
+            onError(err as Error);
+            delete ports[path];
+            resolve(false);
+        });
+        port.on('readable', () => {
+            const chunk = port.read();
+            if (chunk) onData(path, chunk);
+        });
+        port.open((err) => {
+            if (err) {
+                onError(err);
+                delete ports[path];
+                resolve(false);
+            }
+        });
+    });
 }
 
 export async function writeToPort(

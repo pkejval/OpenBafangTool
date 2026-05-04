@@ -222,6 +222,10 @@ class BafangCanMotorSettingsView extends React.Component<
         );
     }
 
+    componentWillUnmount(): void {
+        this.props.connection.controller.emitter.removeAllListeners();
+    }
+
     getRealtimeItems(): DescriptionsProps['items'] {
         let items: DescriptionsProps['items'] = [];
         const { realtime0 } = this.state;

@@ -58,6 +58,10 @@ class BafangCanSensorSettingsView extends React.Component<
         );
     }
 
+    componentWillUnmount(): void {
+        this.props.connection.sensor.emitter.removeAllListeners();
+    }
+
     getRealtimeItems(): DescriptionsProps['items'] {
         const { realtime } = this.state;
         if (realtime) {

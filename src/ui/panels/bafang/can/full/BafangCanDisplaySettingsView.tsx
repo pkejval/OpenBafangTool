@@ -134,6 +134,10 @@ class BafangCanDisplaySettingsView extends React.Component<
         );
     }
 
+    componentWillUnmount(): void {
+        this.props.connection.display.emitter.removeAllListeners();
+    }
+
     getRecordsItems(): DescriptionsProps['items'] {
         const { data1, data2 } = this.state;
         let items: DescriptionsProps['items'] = [];

@@ -99,19 +99,24 @@ export default class BafangCanDisplay {
         this.besstDevice = besstDevice;
         this.requestManager = requestManager;
         this.emitter = new EventEmitter();
-        this.besstDevice?.emitter.on('can', this.processParsedCanResponse);
-        this.besstDevice?.emitter.on(
-            'disconnection',
-            () => (this.besstDevice = undefined),
-        );
+        this.onDeviceDisconnect = this.onDeviceDisconnect.bind(this);
     }
 
     public connect() {
+        this.detachDeviceListeners();
         this.besstDevice?.emitter.on('can', this.processParsedCanResponse);
-        this.besstDevice?.emitter.on(
-            'disconnection',
-            () => (this.besstDevice = undefined),
-        );
+        this.besstDevice?.emitter.on('disconnection', this.onDeviceDisconnect);
+    }
+
+    private detachDeviceListeners(): void {
+        this.besstDevice?.emitter.removeListener('can', this.processParsedCanResponse);
+        this.besstDevice?.emitter.removeListener('disconnection', this.onDeviceDisconnect);
+    }
+
+    private onDeviceDisconnect(): void {
+        this.detachDeviceListeners();
+        this.besstDevice = undefined;
+        this.readingInProgress = false;
     }
 
     private processParsedCanResponse(response: BesstReadedCanFrame) {
@@ -236,7 +241,10 @@ export default class BafangCanDisplay {
 
         commands.forEach((command) => {
             new Promise<boolean>((resolve, reject) => {
-                if (!this.besstDevice || !this.requestManager) return;
+                if (!this.besstDevice || !this.requestManager) {
+                    resolve(false);
+                    return;
+                }
                 readParameter(
                     DeviceNetworkId.DISPLAY,
                     command,
@@ -247,21 +255,36 @@ export default class BafangCanDisplay {
                         reject,
                     },
                 );
-            }).then((success) => {
-                if (success) readedSuccessfully++;
-                else readedUnsuccessfully++;
-                if (
-                    readedSuccessfully + readedUnsuccessfully >=
-                    commands.length
-                ) {
-                    this.emitter.emit(
-                        'read-finish',
-                        readedSuccessfully,
-                        readedUnsuccessfully,
-                    );
-                    this.readingInProgress = false;
-                }
-            });
+            })
+                .then((success) => {
+                    if (success) readedSuccessfully++;
+                    else readedUnsuccessfully++;
+                    if (
+                        readedSuccessfully + readedUnsuccessfully >=
+                        commands.length
+                    ) {
+                        this.emitter.emit(
+                            'read-finish',
+                            readedSuccessfully,
+                            readedUnsuccessfully,
+                        );
+                        this.readingInProgress = false;
+                    }
+                })
+                .catch(() => {
+                    readedUnsuccessfully++;
+                    if (
+                        readedSuccessfully + readedUnsuccessfully >=
+                        commands.length
+                    ) {
+                        this.emitter.emit(
+                            'read-finish',
+                            readedSuccessfully,
+                            readedUnsuccessfully,
+                        );
+                        this.readingInProgress = false;
+                    }
+                });
         });
     }
 

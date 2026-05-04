@@ -22,11 +22,6 @@ import {
 import IConnection from './Connection';
 import { closePort, openPort, writeToPort } from '../serial/serial-port';
 
-const sleep = (ms: number) =>
-    new Promise((resolve) => {
-        setTimeout(resolve, ms);
-    });
-
 export default class BafangUartMotor implements IConnection {
     private port: string;
 
@@ -252,24 +247,17 @@ export default class BafangUartMotor implements IConnection {
     connect(): Promise<boolean> {
         if (this.port === 'demo') {
             console.log('Demo mode: connected');
-            return new Promise<boolean>((resolve) => {
-                resolve(true);
-            });
+            return Promise.resolve(true);
         }
-        let ready: boolean = false;
-        let success: boolean = false;
-        openPort(
+        this.portBuffer = new Uint8Array();
+        return openPort(
             this.port,
             1200,
             () => {
-                success = true;
-                ready = true;
+                console.log(`Serial port opened: ${this.port}`);
             },
             (err: Error | null) => {
-                if (!err) return;
-                console.log('Serial port error ', err);
-                success = false;
-                ready = true;
+                if (err) console.log('Serial port error ', err);
             },
             (responsePath: string, data: Uint8Array) => {
                 if (responsePath === this.port) {
@@ -281,15 +269,6 @@ export default class BafangUartMotor implements IConnection {
                 }
             },
         );
-        // eslint-disable-next-line no-async-promise-executor
-        return new Promise<boolean>(async (resolve) => {
-            let counter: number = 0;
-            while (!ready && counter++ < 1000) {
-                // eslint-disable-next-line no-await-in-loop
-                await sleep(1);
-            }
-            resolve(success);
-        });
     }
 
     disconnect(): void {
@@ -302,17 +281,14 @@ export default class BafangUartMotor implements IConnection {
 
     testConnection(): Promise<boolean> {
         if (this.port === 'demo') {
-            return new Promise<boolean>((resolve) => {
-                resolve(true);
-            });
+            return Promise.resolve(true);
         }
         return this.connect()
             .then((value) => {
-                // TODO add test package send
-                this.disconnect();
                 return value;
             })
-            .catch(() => {
+            .catch((error) => {
+                console.log(error);
                 return false;
             });
     }

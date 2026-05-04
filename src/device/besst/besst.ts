@@ -349,6 +349,11 @@ class BesstDevice {
 
     public disconnect(): void {
         this.device?.removeAllListeners();
+        try {
+            this.device?.close();
+        } catch (e) {
+            console.log('close error:', e);
+        }
         this.device = undefined;
     }
 }

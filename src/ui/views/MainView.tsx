@@ -78,6 +78,8 @@ const initial_tab_table = {
 };
 
 class MainView extends React.Component<MainProps, MainState> {
+    private loadingTimeout?: ReturnType<typeof setTimeout>;
+
     constructor(props: MainProps) {
         super(props);
         this.state = {
@@ -88,31 +90,69 @@ class MainView extends React.Component<MainProps, MainState> {
         };
         this.switchTab = this.switchTab.bind(this);
         this.menuItems = this.menuItems.bind(this);
+        this.onDisconnection = this.onDisconnection.bind(this);
+        this.onReadFinish = this.onReadFinish.bind(this);
+        this.clearLoadingTimeout = this.clearLoadingTimeout.bind(this);
+        this.startLoadingWatchdog = this.startLoadingWatchdog.bind(this);
+    }
+
+    componentDidMount(): void {
         const { connection } = this.props;
-        connection.emitter.once('disconnection', () => {
-            Modal.error({
-                title: 'Connection error',
-                content: i18n.t('device_disconnected'),
-                onOk: this.props.backHook,
-            });
-        });
-        setTimeout(() => this.setState({ loading: false }), 60000);
-        connection.emitter.once(
-            'read-finish',
-            (readedSuccessfully, readedUnsuccessfully) => {
-                message.open({
-                    key: 'loading',
-                    type: 'info',
-                    content: i18n.t('loaded_x_parameters', {
-                        successfully: readedSuccessfully,
-                        nonSuccessfully: readedUnsuccessfully,
-                    }),
-                    duration: 5,
-                });
-                this.setState({ loading: false });
-            },
-        );
+        connection.emitter.on('disconnection', this.onDisconnection);
+        connection.emitter.once('read-finish', this.onReadFinish);
+        this.startLoadingWatchdog();
         connection.loadData();
+    }
+
+    componentWillUnmount(): void {
+        const { connection } = this.props;
+        connection.emitter.removeListener('disconnection', this.onDisconnection);
+        connection.emitter.removeListener('read-finish', this.onReadFinish);
+        this.clearLoadingTimeout();
+    }
+
+    private clearLoadingTimeout(): void {
+        if (this.loadingTimeout) {
+            clearTimeout(this.loadingTimeout);
+            this.loadingTimeout = undefined;
+        }
+    }
+
+    private startLoadingWatchdog(): void {
+        this.clearLoadingTimeout();
+        this.loadingTimeout = setTimeout(() => {
+            if (this.state.loading) {
+                this.setState({ loading: false });
+                message.warning(i18n.t('loading_error'));
+            }
+        }, 120000);
+    }
+
+    private onDisconnection(): void {
+        this.clearLoadingTimeout();
+        this.setState({ loading: false });
+        Modal.error({
+            title: 'Connection error',
+            content: i18n.t('device_disconnected'),
+            onOk: this.props.backHook,
+        });
+    }
+
+    private onReadFinish(
+        readedSuccessfully: number,
+        readedUnsuccessfully: number,
+    ): void {
+        this.clearLoadingTimeout();
+        message.open({
+            key: 'loading',
+            type: 'info',
+            content: i18n.t('loaded_x_parameters', {
+                successfully: readedSuccessfully,
+                nonSuccessfully: readedUnsuccessfully,
+            }),
+            duration: 5,
+        });
+        this.setState({ loading: false });
     }
 
     menuItems() {
@@ -314,6 +354,7 @@ class MainView extends React.Component<MainProps, MainState> {
         if (event.key === 'back') {
             const { backHook } = this.props;
             backHook();
+            return;
         }
         this.setState({ tab: event.key });
     }
@@ -328,16 +369,14 @@ class MainView extends React.Component<MainProps, MainState> {
             />
         );
         return (
-            <Layout hasSider>
+            <Layout hasSider style={{ minHeight: '100vh' }}>
                 <Spin spinning={loading} fullscreen />
                 <Sider
+                    width={240}
+                    breakpoint="lg"
+                    collapsedWidth={0}
                     style={{
                         overflow: 'auto',
-                        height: '100vh',
-                        position: 'fixed',
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
                         paddingTop: '20px',
                     }}
                 >
@@ -358,7 +397,7 @@ class MainView extends React.Component<MainProps, MainState> {
                         onSelect={this.switchTab}
                     />
                 </Sider>
-                <Layout style={{ marginLeft: 200, backgroundColor: 'white' }}>
+                <Layout style={{ backgroundColor: 'white' }}>
                     {tab === 'bafang_uart_motor_settings_simplified' && (
                         <React.Suspense fallback={loadingElement}>
                             <BafangUartMotorSettingsSimplifiedView

@@ -1,6 +1,6 @@
 /* eslint-disable no-else-return */
 import React from 'react';
-import { Spin } from 'antd';
+import { Button, Result, Spin } from 'antd';
 import IConnection from '../device/high-level/Connection';
 import InterfaceType from '../types/InterfaceType';
 
@@ -15,6 +15,7 @@ type AppState = {
     view: string;
     connection: IConnection | null;
     interfaceType: InterfaceType | null;
+    connectionError: string | null;
 };
 
 class App extends React.Component<AppProps, AppState> {
@@ -24,35 +25,50 @@ class App extends React.Component<AppProps, AppState> {
             view: 'device_selector',
             connection: null,
             interfaceType: null,
+            connectionError: null,
         };
         this.deviceSelectionHook = this.deviceSelectionHook.bind(this);
         this.toDeviceSelector = this.toDeviceSelector.bind(this);
     }
 
-    deviceSelectionHook(
+    async deviceSelectionHook(
         newConnection: IConnection,
         interfaceType: InterfaceType,
-    ): void {
+    ): Promise<boolean> {
         const { connection } = this.state;
         if (connection) {
             connection.disconnect();
         }
-        newConnection
-            .connect()
-            .then((value) => {
-                if (!value) {
-                    this.setState({ view: 'connection_error' });
-                }
-                return value;
-            })
-            .catch(() => {
-                this.setState({ view: 'connection_error' });
+        try {
+            const connected = await newConnection.connect();
+            if (!connected) {
+                this.setState({
+                    view: 'connection_error',
+                    connection: null,
+                    interfaceType: null,
+                    connectionError: 'Connection could not be established.',
+                });
+                return false;
+            }
+            this.setState({
+                view: 'main_view',
+                connection: newConnection,
+                interfaceType,
+                connectionError: null,
             });
-        this.setState({
-            view: 'main_view',
-            connection: newConnection,
-            interfaceType: interfaceType,
-        });
+            return true;
+        } catch (error) {
+            this.setState({
+                view: 'connection_error',
+                connection: null,
+                interfaceType: null,
+                connectionError:
+                    error instanceof Error
+                        ? error.message
+                        : 'Connection could not be established.',
+            });
+            return false;
+        }
     }
 
     toDeviceSelector() {
@@ -60,7 +76,12 @@ class App extends React.Component<AppProps, AppState> {
         if (connection) {
             connection.disconnect();
         }
-        this.setState({ view: 'device_selector' });
+        this.setState({
+            view: 'device_selector',
+            connection: null,
+            interfaceType: null,
+            connectionError: null,
+        });
     }
 
     render() {
@@ -91,8 +112,21 @@ class App extends React.Component<AppProps, AppState> {
                 </React.Suspense>
             );
         } else if (view === 'connection_error') {
-            console.log('connection error');
-            return <span />;
+            return (
+                <Result
+                    status="error"
+                    title="Connection failed"
+                    subTitle={
+                        this.state.connectionError ||
+                        'The device could not be opened.'
+                    }
+                    extra={[
+                        <Button key="back" onClick={this.toDeviceSelector}>
+                            Back to device selection
+                        </Button>,
+                    ]}
+                />
+            );
         } else {
             return <div>Unknown error</div>; // TODO add error page
         }

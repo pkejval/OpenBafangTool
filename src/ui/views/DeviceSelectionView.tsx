@@ -21,7 +21,7 @@ type DeviceSelectionProps = {
     deviceSelectionHook: (
         connection: IConnection,
         interfaceType: InterfaceType,
-    ) => void;
+    ) => Promise<boolean>;
 };
 
 type DeviceSelectionState = {
@@ -34,12 +34,17 @@ type DeviceSelectionState = {
     deviceInterface: DeviceInterface | null;
     deviceType: DeviceType | null;
     devicePort: string | null;
+    checkingConnection: boolean;
 };
 
 class DeviceSelectionView extends React.Component<
     DeviceSelectionProps,
     DeviceSelectionState
 > {
+    private pollTimer?: ReturnType<typeof setInterval>;
+
+    private isMounted = false;
+
     constructor(props: DeviceSelectionProps) {
         super(props);
         this.state = {
@@ -52,20 +57,44 @@ class DeviceSelectionView extends React.Component<
             deviceInterface: null,
             deviceType: null,
             devicePort: null,
+            checkingConnection: false,
         };
+    }
 
-        setInterval(() => {
-            SerialPort.list().then((ports) => {
-                this.setState({
-                    portList: filterPorts(
-                        ports.map((port) => port.path),
-                        true,
-                    ),
-                });
-            });
-
-            this.setState({ besstDeviceList: listBesstDevices() });
+    componentDidMount(): void {
+        this.isMounted = true;
+        void this.refreshDeviceLists();
+        this.pollTimer = setInterval(() => {
+            void this.refreshDeviceLists();
         }, 1000);
+    }
+
+    componentWillUnmount(): void {
+        this.isMounted = false;
+        if (this.pollTimer) {
+            clearInterval(this.pollTimer);
+            this.pollTimer = undefined;
+        }
+    }
+
+    private async refreshDeviceLists(): Promise<void> {
+        try {
+            const ports = await SerialPort.list();
+            if (!this.isMounted) return;
+            this.setState({
+                portList: filterPorts(
+                    ports.map((port) => port.path),
+                    true,
+                ),
+                besstDeviceList: listBesstDevices(),
+            });
+        } catch (error) {
+            if (!this.isMounted) return;
+            this.setState({
+                portList: [],
+                besstDeviceList: [],
+            });
+        }
     }
 
     render() {
@@ -74,6 +103,7 @@ class DeviceSelectionView extends React.Component<
             portList,
             besstDeviceList,
             connectionChecked,
+            checkingConnection,
             connection,
             interfaceType,
             deviceBrand,
@@ -102,8 +132,8 @@ class DeviceSelectionView extends React.Component<
             >
                 <Form
                     name="device-selection"
-                    onFinish={() => {
-                        deviceSelectionHook(
+                    onFinish={async () => {
+                        await deviceSelectionHook(
                             connection as IConnection,
                             interfaceType as InterfaceType,
                         );
@@ -130,9 +160,14 @@ class DeviceSelectionView extends React.Component<
                                         interfaceType: InterfaceType.Full,
                                         connectionChecked: false,
                                     });
+                                } else {
+                                    this.setState({
+                                        deviceInterface: value,
+                                        interfaceType: null,
+                                        connectionChecked: false,
+                                    });
                                 }
                                 this.setState({
-                                    deviceInterface: value,
                                     deviceType: DeviceType.Motor,
                                     connectionChecked: false,
                                 });
@@ -243,8 +278,14 @@ class DeviceSelectionView extends React.Component<
                         <Space>
                             <Button
                                 type="primary"
-                                onClick={() => {
+                                loading={checkingConnection}
+                                onClick={async () => {
                                     let newConnection: IConnection;
+                                    if (checkingConnection) return;
+                                    this.setState({
+                                        checkingConnection: true,
+                                        connectionChecked: false,
+                                    });
                                     if (
                                         deviceBrand === DeviceBrand.Bafang &&
                                         deviceInterface ===
@@ -268,31 +309,33 @@ class DeviceSelectionView extends React.Component<
                                         message.info(
                                             'This kind of device is not supported yet',
                                         );
+                                        this.setState({
+                                            checkingConnection: false,
+                                        });
                                         return;
                                     }
-                                    newConnection
-                                        .testConnection()
-                                        .then((result) => {
-                                            if (result) {
-                                                this.setState({
-                                                    connection: newConnection,
-                                                });
-                                            } else {
-                                                message.error(
-                                                    'Connection error!',
-                                                );
-                                            }
+                                    try {
+                                        const result = await newConnection.testConnection();
+                                        if (result) {
                                             this.setState({
-                                                connectionChecked: result,
+                                                connection: newConnection,
+                                                connectionChecked: true,
+                                                checkingConnection: false,
                                             });
-                                            return null;
-                                        })
-                                        .catch(() => {
+                                        } else {
+                                            message.error('Connection error!');
                                             this.setState({
                                                 connectionChecked: false,
+                                                checkingConnection: false,
                                             });
-                                            message.error('Connection error!');
+                                        }
+                                    } catch (error) {
+                                        this.setState({
+                                            connectionChecked: false,
+                                            checkingConnection: false,
                                         });
+                                        message.error('Connection error!');
+                                    }
                                 }}
                                 disabled={
                                     deviceBrand === null ||
@@ -302,7 +345,8 @@ class DeviceSelectionView extends React.Component<
                                         deviceInterface ===
                                             DeviceInterface.UART &&
                                         deviceType === null) ||
-                                    interfaceType === null
+                                    interfaceType === null ||
+                                    checkingConnection
                                 }
                             >
                                 {i18n.t('check_connection')}

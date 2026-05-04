@@ -70,6 +70,10 @@ class BafangCanBatteryView extends React.Component<ViewProps, ViewState> {
         );
     }
 
+    componentWillUnmount(): void {
+        this.props.connection.battery.emitter.removeAllListeners();
+    }
+
     getCellVoltageItems(): DescriptionsProps['items'] {
         if (!this.state.cells_voltage) return [];
         let items: DescriptionsProps['items'] = [];

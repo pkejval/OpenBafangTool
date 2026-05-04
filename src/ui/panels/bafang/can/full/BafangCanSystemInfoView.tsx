@@ -208,6 +208,14 @@ class BafangCanSystemInfoView extends React.Component<InfoProps, InfoState> {
         );
     }
 
+    componentWillUnmount(): void {
+        const { connection } = this.props;
+        connection.besst.emitter.removeAllListeners();
+        connection.sensor.emitter.removeAllListeners();
+        connection.display.emitter.removeAllListeners();
+        connection.controller.emitter.removeAllListeners();
+    }
+
     getControllerItems(): DescriptionsProps['items'] {
         let items: DescriptionsProps['items'] = [];
         const { controller_realtime0, controller_realtime1 } = this.state;

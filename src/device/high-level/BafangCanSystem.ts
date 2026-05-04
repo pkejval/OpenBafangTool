@@ -44,7 +44,14 @@ export default class BafangCanSystem implements IConnection {
 
     onDisconnect() {
         this.device = undefined;
+        this.readingInProgress = false;
         this.emitter.emit('disconnection');
+    }
+
+    private getActiveDevices() {
+        return [this._controller, this._display, this._sensor, this._battery, this._besst].filter(
+            (device) => device != null,
+        );
     }
 
     public connect(): Promise<boolean> {
@@ -55,47 +62,60 @@ export default class BafangCanSystem implements IConnection {
             this._battery = new BafangCanBattery(true);
             this._besst = new BafangBesstTool(true);
             console.log('Demo mode: connected');
-            return new Promise<boolean>((resolve) => resolve(true));
+            return Promise.resolve(true);
         }
-        this.device = new BesstDevice(this.devicePath);
-        this.requestManager = new RequestManager(this.device);
-        this._controller = new BafangCanController(
-            false,
-            this.device,
-            this.requestManager,
-        );
-        this._display = new BafangCanDisplay(
-            false,
-            this.device,
-            this.requestManager,
-        );
-        this._sensor = new BafangCanSensor(
-            false,
-            this.device,
-            this.requestManager,
-        );
-        this._battery = new BafangCanBattery(
-            false,
-            this.device,
-            this.requestManager,
-        );
-        this._besst = new BafangBesstTool(false, this.device);
-        this.device?.emitter.on('disconnection', this.onDisconnect);
+        try {
+            this.device = new BesstDevice(this.devicePath);
+            this.requestManager = new RequestManager(this.device);
+            this._controller = new BafangCanController(
+                false,
+                this.device,
+                this.requestManager,
+            );
+            this._display = new BafangCanDisplay(
+                false,
+                this.device,
+                this.requestManager,
+            );
+            this._sensor = new BafangCanSensor(
+                false,
+                this.device,
+                this.requestManager,
+            );
+            this._battery = new BafangCanBattery(
+                false,
+                this.device,
+                this.requestManager,
+            );
+            this._besst = new BafangBesstTool(false, this.device);
+            this.device.emitter.on('disconnection', this.onDisconnect);
 
-        return new Promise<boolean>(async (resolve) => {
-            this.device?.reset().then(() => {
-                this.device?.emitter.removeAllListeners();
+            return (async () => {
+                const device = this.device;
+                await device?.reset();
+                if (!this.device || this.device !== device) {
+                    return false;
+                }
                 this._controller?.connect();
                 this._display?.connect();
                 this._sensor?.connect();
                 this._battery?.connect();
                 this._besst?.connect();
-                this.device?.emitter.on('disconnection', this.onDisconnect);
-                this.device?.activateDriveUnit().then(() => {
-                    resolve(true);
-                });
+                await device?.activateDriveUnit();
+                if (!this.device || this.device !== device) {
+                    return false;
+                }
+                return true;
+            })().catch((error) => {
+                console.log(error);
+                this.disconnect();
+                return false;
             });
-        });
+        } catch (error) {
+            console.log(error);
+            this.disconnect();
+            return Promise.resolve(false);
+        }
     }
 
     public disconnect(): void {
@@ -104,34 +124,43 @@ export default class BafangCanSystem implements IConnection {
             return;
         }
         this.device?.disconnect();
+        this.device = undefined;
+        this.readingInProgress = false;
     }
 
     public testConnection(): Promise<boolean> {
         if (this.devicePath === 'demo') {
-            return new Promise<boolean>((resolve) => resolve(true));
+            return Promise.resolve(true);
         }
-        return new Promise<boolean>((resolve) => {
-            try {
-                // this.device = new HID.HID(this.devicePath);
-                resolve(true);
-            } catch (error) {
-                console.log(error);
-                resolve(false);
-            }
-        });
+        try {
+            const device = new BesstDevice(this.devicePath);
+            device.disconnect();
+            return Promise.resolve(true);
+        } catch (error) {
+            console.log(error);
+            return Promise.resolve(false);
+        }
     }
 
     public loadData(): void {
         if (this.readingInProgress) return;
         this.readingInProgress = true;
-        let readedSuccessfully = 0,
-            readedUnsuccessfully = 0,
-            readedDevices = 0;
-        const onReadFinish = (successful: number, nonsucessful: number) => {
+        const devices = this.getActiveDevices();
+
+        if (devices.length === 0) {
+            this.emitter.emit('read-finish', 0, 0);
+            this.readingInProgress = false;
+            return;
+        }
+
+        let readedSuccessfully = 0;
+        let readedUnsuccessfully = 0;
+        let readedDevices = 0;
+        const onDeviceReadFinish = (successful: number, nonsuccessful: number) => {
             readedSuccessfully += successful;
-            readedUnsuccessfully + nonsucessful;
+            readedUnsuccessfully += nonsuccessful;
             readedDevices++;
-            if (readedDevices >= 5) {
+            if (readedDevices >= devices.length) {
                 BafangCanBackup.saveBackup(
                     this._controller,
                     this._display,
@@ -146,11 +175,11 @@ export default class BafangCanSystem implements IConnection {
                 this.readingInProgress = false;
             }
         };
-        this._controller?.emitter.once('read-finish', onReadFinish);
-        this._display?.emitter.once('read-finish', onReadFinish);
-        this._sensor?.emitter.once('read-finish', onReadFinish);
-        this._battery?.emitter.once('read-finish', onReadFinish);
-        this._besst?.emitter.once('read-finish', onReadFinish);
+        this._controller?.emitter.once('read-finish', onDeviceReadFinish);
+        this._display?.emitter.once('read-finish', onDeviceReadFinish);
+        this._sensor?.emitter.once('read-finish', onDeviceReadFinish);
+        this._battery?.emitter.once('read-finish', onDeviceReadFinish);
+        this._besst?.emitter.once('read-finish', onDeviceReadFinish);
         this._controller?.loadData();
         this._display?.loadData();
         this._sensor?.loadData();

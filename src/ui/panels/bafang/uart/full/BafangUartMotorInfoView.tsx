@@ -29,6 +29,10 @@ class BafangUartMotorInfoView extends React.Component<InfoProps, InfoState> {
         connection.emitter.on('data', this.updateInfo);
     }
 
+    componentWillUnmount(): void {
+        this.props.connection.emitter.removeListener('data', this.updateInfo);
+    }
+
     getCodeItems(): DescriptionsProps['items'] {
         const { connection } = this.props;
         const info = connection.getInfo();

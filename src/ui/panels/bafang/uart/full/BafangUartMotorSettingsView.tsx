@@ -114,6 +114,13 @@ class BafangUartMotorSettingsView extends React.Component<
         connection.emitter.on('write-error', this.onWriteError);
     }
 
+    componentWillUnmount(): void {
+        const { connection } = this.props;
+        connection.emitter.removeListener('data', this.updateData);
+        connection.emitter.removeListener('write-success', this.onWriteSuccess);
+        connection.emitter.removeListener('write-error', this.onWriteError);
+    }
+
     onWriteSuccess(pkg_code: string): void {
         // eslint-disable-next-line react/destructuring-assignment, react/no-access-state-in-setstate
         this.packages_written++;
